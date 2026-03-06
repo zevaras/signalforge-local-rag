@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.so
+
+# Virtualenv
+.venv/
+venv/
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Data & indexes
+data/chroma_db/
+data/faiss_db/
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Logs
+*.log
+
+# Misc
+*.sqlite3

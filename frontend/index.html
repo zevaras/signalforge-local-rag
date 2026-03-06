@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SignalForge – Local AI Document Q&A</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" />
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --card: #1a1a1f;
+      --border: #2a2a32;
+      --text: #e8e8ed;
+      --muted: #8888a0;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --user-msg: #2d2d38;
+      --ai-msg: #252530;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+    .navbar { background: var(--card); border-bottom: 1px solid var(--border); }
+    .box, .card { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+    .box .label, .card .label { color: var(--muted); }
+    .input, .textarea { background: #252530; border-color: var(--border); color: var(--text); }
+    .input::placeholder, .textarea::placeholder { color: var(--muted); }
+    .button.is-primary { background: var(--accent); }
+    .button.is-primary:hover { background: var(--accent-hover); }
+    .chat-messages { max-height: 420px; overflow-y: auto; }
+    .msg { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; max-width: 85%; }
+    .msg.user { background: var(--user-msg); margin-left: 0; margin-right: auto; }
+    .msg.assistant { background: var(--ai-msg); margin-left: auto; margin-right: 0; white-space: pre-wrap; }
+    .msg .meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .doc-list { max-height: 200px; overflow-y: auto; }
+    .doc-list li { padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+    .loading { opacity: 0.7; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <nav class="navbar" role="navigation">
+    <div class="navbar-brand px-4 py-3">
+      <span class="has-text-weight-bold" style="color: var(--accent);">SignalForge</span>
+      <span class="ml-2 has-text-weight-normal" style="color: var(--muted);">Local AI Document Q&A</span>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container">
+      <div class="columns">
+        <div class="column is-4">
+          <div class="box">
+            <p class="label">Upload documents (PDF, TXT, MD)</p>
+            <div class="file has-name is-fullwidth mb-3">
+              <label class="file-label">
+                <input class="file-input" type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown" multiple />
+                <span class="file-cta">
+                  <span class="file-icon">📄</span>
+                  <span class="file-label">Choose files…</span>
+                </span>
+                <span class="file-name" id="fileName">No file chosen</span>
+              </label>
+            </div>
+            <button class="button is-primary is-fullwidth" id="uploadBtn" disabled>Upload</button>
+            <p class="help mt-2 has-text-success is-hidden" id="uploadSuccess">Upload complete.</p>
+            <p class="help mt-2 has-text-danger is-hidden" id="uploadError"></p>
+          </div>
+          <div class="box">
+            <p class="label">Uploaded documents</p>
+            <ul class="doc-list" id="docList">
+              <li class="has-text-muted">Loading…</li>
+            </ul>
+            <button class="button is-small is-fullwidth mt-2" id="refreshDocs">Refresh list</button>
+          </div>
+        </div>
+        <div class="column is-8">
+          <div class="box">
+            <p class="label">Ask a question about your documents</p>
+            <div class="chat-messages mb-3" id="chatMessages"></div>
+            <div class="field has-addons">
+              <div class="control is-expanded">
+                <input class="input" type="text" id="questionInput" placeholder="e.g. What does the document say about MQTT?" />
+              </div>
+              <div class="control">
+                <button class="button is-primary" id="askBtn">Ask</button>
+            </div>
+            </div>
+            <p class="help has-text-danger is-hidden" id="askError"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
