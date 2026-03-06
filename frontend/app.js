@@ -12,6 +12,17 @@ const questionInput = document.getElementById('questionInput');
 const askBtn = document.getElementById('askBtn');
 const askError = document.getElementById('askError');
 
+// Viewer modal
+const viewerModal = document.getElementById('viewerModal');
+const viewerBackdrop = document.getElementById('viewerBackdrop');
+const viewerCloseBtn = document.getElementById('viewerCloseBtn');
+const viewerTitle = document.getElementById('viewerTitle');
+const viewerSubtitle = document.getElementById('viewerSubtitle');
+const viewerExcerpt = document.getElementById('viewerExcerpt');
+const viewerFrame = document.getElementById('viewerFrame');
+const viewerOpenNewTab = document.getElementById('viewerOpenNewTab');
+const viewerDocHint = document.getElementById('viewerDocHint');
+
 // Stats widgets
 const statDocuments = document.getElementById('statDocuments');
 const statQuestions = document.getElementById('statQuestions');
@@ -151,6 +162,74 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+function escapeAttr(s) {
+  return String(s || '').replace(/"/g, '&quot;');
+}
+
+function formatCitationLabel(c) {
+  const src = c.source || 'Unknown';
+  const page = typeof c.page === 'number' ? ` • p.${c.page + 1}` : '';
+  return `${src}${page}`;
+}
+
+function openViewer(citation) {
+  if (!viewerModal) return;
+  const source = citation?.source || 'Unknown';
+  const page = typeof citation?.page === 'number' ? citation.page : null;
+  const excerpt = citation?.excerpt || '';
+
+  viewerTitle.textContent = source;
+  viewerSubtitle.textContent = page != null ? `Page ${page + 1}` : '—';
+
+  const safeExcerpt = escapeHtml(excerpt);
+  // Highlight the excerpt itself (best effort): mark first ~160 chars
+  const hl = safeExcerpt.length > 0
+    ? `<mark>${safeExcerpt.slice(0, Math.min(160, safeExcerpt.length))}</mark>${safeExcerpt.slice(Math.min(160, safeExcerpt.length))}`
+    : '—';
+  viewerExcerpt.innerHTML = hl;
+
+  const docUrlBase = `${API_BASE}/document/${encodeURIComponent(source)}`;
+  const isPdf = source.toLowerCase().endsWith('.pdf');
+  let frameUrl = docUrlBase;
+
+  if (isPdf) {
+    // Use PDF.js official viewer with search + page so we get real in-PDF highlights.
+    const origin = window.location.origin || '';
+    const fileParam = encodeURIComponent(`${origin}${docUrlBase}`);
+    // Use a short search term from the excerpt to highlight inside PDF.
+    const searchTerm = encodeURIComponent((excerpt || '').slice(0, 80));
+    const pageParam = page != null ? `&page=${page + 1}` : '';
+    const searchParam = searchTerm ? `#search=${searchTerm}` : '';
+    frameUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${fileParam}${pageParam}${searchParam}`;
+  }
+
+  viewerFrame.src = frameUrl;
+  viewerOpenNewTab.href = frameUrl;
+  if (isPdf) {
+    viewerDocHint.textContent = page != null
+      ? `PDF.js viewer – page ${page + 1} with highlighted text`
+      : 'PDF.js viewer – searchable PDF';
+  } else {
+    viewerDocHint.textContent = 'Document preview';
+  }
+
+  viewerModal.classList.add('is-active');
+  viewerModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeViewer() {
+  if (!viewerModal) return;
+  viewerModal.classList.remove('is-active');
+  viewerModal.setAttribute('aria-hidden', 'true');
+  if (viewerFrame) viewerFrame.src = 'about:blank';
+}
+
+if (viewerBackdrop) viewerBackdrop.addEventListener('click', closeViewer);
+if (viewerCloseBtn) viewerCloseBtn.addEventListener('click', closeViewer);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeViewer();
+});
+
 function appendMessage(role, text) {
   const div = document.createElement('div');
   div.className = `msg ${role}`;
@@ -214,6 +293,22 @@ async function submitQuestion() {
     }
 
     answerEl.querySelector('.content').textContent = answer;
+
+    // Render citations (clickable chips)
+    const citations = Array.isArray(data.citations) ? data.citations : [];
+    if (citations.length > 0) {
+      const citeWrap = document.createElement('div');
+      citeWrap.className = 'citations';
+      citations.slice(0, 8).forEach((c, idx) => {
+        const chip = document.createElement('span');
+        chip.className = 'cite-chip';
+        chip.textContent = formatCitationLabel(c);
+        chip.title = c.excerpt || '';
+        chip.addEventListener('click', () => openViewer(c));
+        citeWrap.appendChild(chip);
+      });
+      answerEl.appendChild(citeWrap);
+    }
 
     // Update session stats
     sessionQuestions += 1;

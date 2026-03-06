@@ -3,8 +3,6 @@ import asyncio
 
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 
 from app.db.vector_store import similarity_search
 from app.llm.ollama_client import get_llm
@@ -55,6 +53,27 @@ def ask_question_sync(question: str) -> str:
     return chain.invoke({"question": question})
 
 
+def ask_question_with_citations_sync(question: str) -> tuple[str, list[Document]]:
+    """Run RAG synchronously and return answer + retrieved chunks."""
+    docs = similarity_search(question, k=8)
+    context = _format_docs(docs)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", SYSTEM_PROMPT),
+        ("human", USER_PROMPT),
+    ])
+    llm = get_llm()
+    messages = prompt.format_messages(context=context, question=question)
+    result = llm.invoke(messages)
+    # ChatOllama returns an AIMessage-like object
+    answer = getattr(result, "content", str(result))
+    return answer, docs
+
+
 async def ask_question(question: str) -> str:
     """Run RAG: retrieve context and generate answer."""
     return await asyncio.to_thread(ask_question_sync, question)
+
+
+async def ask_question_with_citations(question: str) -> tuple[str, list[Document]]:
+    """Run RAG and return answer + retrieved chunks."""
+    return await asyncio.to_thread(ask_question_with_citations_sync, question)

@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.config import settings
@@ -15,7 +16,7 @@ from app.services.document_loader import (
     load_document,
     split_documents,
 )
-from app.services.rag_service import ask_question
+from app.services.rag_service import ask_question_with_citations
 
 
 router = APIRouter()
@@ -31,6 +32,12 @@ class AskRequest(BaseModel):
     """Request body for /ask."""
 
     question: str
+
+
+class Citation(BaseModel):
+    source: str
+    page: int | None = None
+    excerpt: str
 
 
 class AskResponse(BaseModel):
@@ -51,6 +58,8 @@ class AskResponse(BaseModel):
     status: str
     # Performance
     response_latency_ms: float | None = None
+    # Citations: retrieved chunks used as context
+    citations: list[Citation] = []
 
 
 def _process_one_file(path: Path, display_name: str) -> None:
@@ -131,7 +140,7 @@ async def ask(req: AskRequest):
         raise HTTPException(status_code=400, detail="Question is required")
     start = time.perf_counter()
     try:
-        answer = await ask_question(question)
+        answer, docs = await ask_question_with_citations(question)
         latency_ms = (time.perf_counter() - start) * 1000
         record_ask_success(latency_ms)
         question_chars = len(question)
@@ -139,6 +148,21 @@ async def ask(req: AskRequest):
         question_tokens = max(1, int(question_chars / 4)) if question_chars else 0
         answer_tokens = max(1, int(answer_chars / 4)) if answer_chars else 0
         estimated_total_tokens = max(1, question_tokens + answer_tokens)
+        citations: list[Citation] = []
+        for d in docs:
+            source = d.metadata.get("source") or "Unknown source"
+            page_raw = d.metadata.get("page")
+            if page_raw is not None:
+                try:
+                    page = int(page_raw)  # numpy (e.g. np.int64) from PyPDF -> native int
+                except (TypeError, ValueError):
+                    page = None
+            else:
+                page = None
+            excerpt = (d.page_content or "").strip()
+            if len(excerpt) > 400:
+                excerpt = excerpt[:400].rstrip() + "…"
+            citations.append(Citation(source=str(source), page=page, excerpt=excerpt))
         return AskResponse(
             answer=answer,
             question_chars=question_chars,
@@ -151,6 +175,7 @@ async def ask(req: AskRequest):
             model_timeout=settings.ollama_timeout,
             status="ok",
             response_latency_ms=round(latency_ms, 2),
+            citations=citations,
         )
     except Exception as e:
         record_ask_error()
@@ -165,6 +190,25 @@ def _display_name(path: Path) -> str:
     return name
 
 
+def _resolve_uploaded_path(display_name: str) -> Path | None:
+    uploads_dir = Path(settings.uploads_dir)
+    if not uploads_dir.exists():
+        return None
+    matches: list[Path] = []
+    for f in uploads_dir.iterdir():
+        if not f.is_file():
+            continue
+        if f.suffix.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        if _display_name(f) == display_name:
+            matches.append(f)
+    if not matches:
+        return None
+    # Prefer newest if duplicates
+    matches.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return matches[0]
+
+
 @router.get("/documents")
 async def list_documents():
     """List names of uploaded documents (files in uploads directory)."""
@@ -177,6 +221,15 @@ async def list_documents():
         if f.is_file() and f.suffix.lower() in ALLOWED_EXTENSIONS
     ]
     return {"documents": sorted(names)}
+
+
+@router.get("/document/{name}")
+async def get_document(name: str):
+    """Serve an uploaded document by display name."""
+    path = _resolve_uploaded_path(name)
+    if not path:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return FileResponse(path)
 
 
 @router.get("/dashboard")
