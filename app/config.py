@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
 
+    # Upload capacity (enforced per request)
+    max_upload_files: int = 20  # max files in a single upload
+    max_upload_file_size_mb: float = 50.0  # max size per file in MB
+    max_concurrent_upload_tasks: int = 4  # max docs processed in parallel per batch
+
     # Paths
     uploads_dir: Path = Path("data/uploads")
 

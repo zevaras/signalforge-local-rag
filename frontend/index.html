@@ -206,6 +206,41 @@
       color: var(--muted);
       border-color: rgba(148, 163, 184, 0.6);
     }
+    .dashboard-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .dashboard-section {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 0.75rem;
+      padding: 0.9rem 1rem;
+      border: 1px solid var(--border);
+    }
+    .dashboard-section-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+      font-weight: 600;
+    }
+    .dashboard-kv {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      padding: 0.25rem 0;
+    }
+    .dashboard-k { color: var(--muted); }
+    .dashboard-v { font-weight: 600; color: var(--text); }
+    @media (max-width: 768px) {
+      .dashboard-row { grid-template-columns: 1fr; }
+    }
     @media (max-width: 1023px) {
       .stats-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -276,12 +311,33 @@
             <span class="stat-pill status-unknown" id="statModelStatus">Unknown</span>
           </div>
         </div>
+
+        <div class="dashboard-row">
+          <div class="dashboard-section">
+            <div class="dashboard-section-title">Upload capacity</div>
+            <div class="dashboard-kv"><span class="dashboard-k">Max files per upload</span><span class="dashboard-v" id="dashMaxFiles">—</span></div>
+            <div class="dashboard-kv"><span class="dashboard-k">Max file size</span><span class="dashboard-v" id="dashMaxSize">—</span></div>
+            <div class="dashboard-kv"><span class="dashboard-k">Concurrent processing</span><span class="dashboard-v" id="dashConcurrent">—</span></div>
+          </div>
+          <div class="dashboard-section">
+            <div class="dashboard-section-title">Last upload</div>
+            <div class="dashboard-kv"><span class="dashboard-k">Docs processed</span><span class="dashboard-v" id="dashUploadCount">—</span></div>
+            <div class="dashboard-kv"><span class="dashboard-k">Processing time</span><span class="dashboard-v" id="dashUploadTime">—</span></div>
+          </div>
+          <div class="dashboard-section">
+            <div class="dashboard-section-title">Model performance</div>
+            <div class="dashboard-kv"><span class="dashboard-k">Success / errors</span><span class="dashboard-v" id="dashSuccessErrors">—</span></div>
+            <div class="dashboard-kv"><span class="dashboard-k">Last latency</span><span class="dashboard-v" id="dashLastLatency">—</span></div>
+            <div class="dashboard-kv"><span class="dashboard-k">Avg latency</span><span class="dashboard-v" id="dashAvgLatency">—</span></div>
+          </div>
+        </div>
       </div>
 
       <div class="columns is-variable is-6 is-multiline">
         <div class="column is-12-tablet is-4-desktop">
           <div class="box">
             <p class="label">Upload documents (PDF, TXT, MD)</p>
+            <p class="help mb-2 has-text-weight-normal" style="color: var(--muted);" id="uploadCapacityHint">Capacity: loading…</p>
             <div class="file has-name is-fullwidth mb-3">
               <label class="file-label">
                 <input class="file-input" type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown" multiple />

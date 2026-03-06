@@ -63,11 +63,15 @@ uploadBtn.addEventListener('click', async () => {
     if (!res.ok) throw new Error(data.detail || res.statusText);
     uploadSuccess.classList.remove('is-hidden');
     uploadSuccess.textContent = `Uploaded: ${(data.uploaded || []).join(', ')}`;
+    if (data.processing_time_ms != null) {
+      uploadSuccess.textContent += ` (${data.processed_count || data.uploaded?.length || 0} processed in ${(data.processing_time_ms / 1000).toFixed(2)}s)`;
+    }
     selectedFiles = [];
     fileInput.value = '';
     fileName.textContent = 'No file chosen';
     uploadBtn.disabled = true;
     loadDocuments();
+    fetchDashboard();
   } catch (e) {
     uploadError.textContent = e.message || 'Upload failed';
     uploadError.classList.remove('is-hidden');
@@ -216,8 +220,10 @@ async function submitQuestion() {
     // Prefer server-side estimate but fall back to local heuristic if missing
     sessionEstimatedTokens += estimatedTokens;
     renderStats();
+    fetchDashboard();
   } catch (e) {
     answerEl.querySelector('.content').textContent = `Error: ${e.message}`;
+    fetchDashboard();
   } finally {
     askBtn.disabled = false;
     askBtn.classList.remove('loading');
@@ -225,4 +231,46 @@ async function submitQuestion() {
   }
 }
 
+function renderDashboard(data) {
+  if (!data) return;
+  const cap = data.capacity || {};
+  const upload = data.upload || {};
+  const model = data.model || {};
+  const el = (id) => document.getElementById(id);
+  if (el('dashMaxFiles')) el('dashMaxFiles').textContent = String(cap.max_upload_files ?? '—');
+  if (el('dashMaxSize')) el('dashMaxSize').textContent = cap.max_upload_file_size_mb != null ? `${cap.max_upload_file_size_mb} MB` : '—';
+  if (el('dashConcurrent')) el('dashConcurrent').textContent = String(cap.max_concurrent_upload_tasks ?? '—');
+  if (el('dashUploadCount')) el('dashUploadCount').textContent = upload.last_batch_count != null ? String(upload.last_batch_count) : '—';
+  if (el('dashUploadTime')) {
+    const ms = upload.last_batch_duration_ms;
+    el('dashUploadTime').textContent = ms != null ? (ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`) : '—';
+  }
+  if (el('dashSuccessErrors')) {
+    const s = model.success_count ?? 0;
+    const e = model.error_count ?? 0;
+    el('dashSuccessErrors').textContent = `${s} / ${e}`;
+  }
+  if (el('dashLastLatency')) {
+    const ms = model.last_latency_ms;
+    el('dashLastLatency').textContent = ms != null ? `${Math.round(ms)}ms` : '—';
+  }
+  if (el('dashAvgLatency')) {
+    const ms = model.avg_latency_ms;
+    el('dashAvgLatency').textContent = ms != null ? `${Math.round(ms)}ms` : '—';
+  }
+  const hint = document.getElementById('uploadCapacityHint');
+  if (hint && cap.max_upload_files != null && cap.max_upload_file_size_mb != null) {
+    hint.textContent = `Up to ${cap.max_upload_files} files, ${cap.max_upload_file_size_mb} MB each. ${cap.max_concurrent_upload_tasks ?? 1} processed at a time.`;
+  }
+}
+
+async function fetchDashboard() {
+  try {
+    const res = await fetch(`${API_BASE}/dashboard`);
+    const data = await res.json().catch(() => null);
+    if (data) renderDashboard(data);
+  } catch (_) {}
+}
+
 loadDocuments();
+fetchDashboard();
