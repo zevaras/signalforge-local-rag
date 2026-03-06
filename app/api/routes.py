@@ -32,9 +32,21 @@ class AskRequest(BaseModel):
 
 
 class AskResponse(BaseModel):
-    """Response for /ask."""
+    """Response for /ask, including simple usage and model metadata."""
 
     answer: str
+    # Character counts
+    question_chars: int
+    answer_chars: int
+    # Rough token estimates
+    question_tokens: int
+    answer_tokens: int
+    estimated_total_tokens: int
+    # LLM / model metadata
+    model_name: str
+    model_base_url: str
+    model_timeout: float
+    status: str
 
 
 @router.post("/upload")
@@ -78,7 +90,24 @@ async def ask(req: AskRequest):
         raise HTTPException(status_code=400, detail="Question is required")
     try:
         answer = await ask_question(question)
-        return AskResponse(answer=answer)
+        question_chars = len(question)
+        answer_chars = len(answer)
+        # Rough heuristic: ~4 characters per token across prompt + answer.
+        question_tokens = max(1, int(question_chars / 4)) if question_chars else 0
+        answer_tokens = max(1, int(answer_chars / 4)) if answer_chars else 0
+        estimated_total_tokens = max(1, question_tokens + answer_tokens)
+        return AskResponse(
+            answer=answer,
+            question_chars=question_chars,
+            answer_chars=answer_chars,
+            question_tokens=question_tokens,
+            answer_tokens=answer_tokens,
+            estimated_total_tokens=estimated_total_tokens,
+            model_name=settings.ollama_model,
+            model_base_url=settings.ollama_base_url,
+            model_timeout=settings.ollama_timeout,
+            status="ok",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e!s}")
 
